@@ -23,7 +23,7 @@ object TF_IDF {
 
     //Getting the Lemmatised form of the words in TextFile
     val documentseq = documents.map(f => {
-      val lemmatised = CoreNLPLemma.returnLemma(f)
+      //val lemmatised = CoreNLPLemma.returnLemma(f)
       val splitString = f.split(" ")
       splitString.toSeq
     })

@@ -1,50 +1,47 @@
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
-import edu.stanford.nlp.pipeline.POSTaggerAnnotator;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
-import edu.stanford.nlp.semgraph.SemanticGraph;
-import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations;
-import edu.stanford.nlp.trees.Tree;
-import edu.stanford.nlp.trees.TreeCoreAnnotations;
+import edu.stanford.nlp.simple.Document;
+import edu.stanford.nlp.simple.Sentence;
 import edu.stanford.nlp.util.CoreMap;
+import edu.stanford.nlp.util.Quadruple;
 
 import java.util.*;
 
 /**
- * Created by chait on 13/06/2017.
+ * Created by chait on 04/07/2017.
  */
 public class NLProcessor {
-    private  FileUtil f = new FileUtil();
+
+
     private Map<String,Set<String>> nerMap = new HashMap();
+    List<List<Quadruple<String, String, String, Double>>> l = new ArrayList<>();
+    private  FileUtil f = new FileUtil();
     Properties props = new Properties();
     StanfordCoreNLP pipeline;
+    int ansFlag = -1;
+    int answer;
 
     public void initiateCoreNlp(){
-        props.setProperty("annotators", "tokenize, ssplit,pos,lemma,ner, parse, dcoref");
+        props.setProperty("annotators", "tokenize, ssplit,pos,lemma,ner, parse");
         pipeline = new StanfordCoreNLP(props);
     }
 
     public void startSystem(){
         System.out.println("Initiating coreNLP Lib...");
         initiateCoreNlp();
-        String path = "C:\\Users\\chait\\Desktop\\069.txt";
+        String path = "C:\\Users\\chait\\Desktop\\046.txt";
         System.out.println("Reading input file at location:\n"+path);
         String line = f.readFromFile(path);//change file path here.
+        System.out.println(line);
         parse(line);
         System.out.println("System stared....\n\nAsk questions,\nEnter 'quit' to exit");
         Scanner scanner = new Scanner(System.in);
         while(scanner.hasNext()){
-            String questionInPut =  scanner.nextLine();
-            if(!questionInPut.equalsIgnoreCase("quit")){
-                //System.out.println(questionInPut);
-                String answer = extract(questionInPut);
-                if(answer != null){
-                    System.out.println("Ans : "+answer);
-                }
-                else{
-                    System.out.println("I Can't fetch answer for this question");
-                }
+            String questionInPut = scanner.nextLine();
+            if(!questionInPut.equalsIgnoreCase("quit") && questionInPut != null){
+                extract(questionInPut);
             }
             else{
                 break;
@@ -52,90 +49,121 @@ public class NLProcessor {
         }
     }
 
+    public void extract(String question){
+        parseQuestion(question);
+    }
+
+    public void parseQuestion(String question) {
+        Annotation annotation =  pipeline.process(question);
+        String questionType = null;
+        String sub = null;
+        for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
+            List<CoreLabel> tokens = sentence.get(CoreAnnotations.TokensAnnotation.class);
+            questionType = tokens.get(0).toString().toLowerCase().split("-")[0];
+            sub = tokens.get(tokens.size()-1).toString().toLowerCase().split("-")[0];
+            System.out.println("Question type : "+questionType);
+        }
+        switch(questionType){
+            case "who" : printTriplets("PERSON",sub);
+                break;
+            case "where" :
+                printTriplets("LOCATION",sub);
+                if(ansFlag == -1){
+                    printTriplets("ORGANIZATION",sub);
+
+                }
+                break;
+            case "when" :
+                printTriplets("DATE",sub);
+                if(ansFlag == -1) {
+                    printTriplets("DURATION", sub);
+                }
+
+                break;
+            case "howmuch" :
+                printTriplets("NUMBER",sub);
+                if(ansFlag == -1) {
+                    printTriplets("PERCENT", sub);
+                }
+                if(ansFlag == -1) {
+                    printTriplets("MONEY", sub);
+                }
+                break;
+            default: System.out.println("This question type is not supported yet");
+        }
+    }
+
     public void parse(String story){
         if (story != null && story.length() > 0) {
             int longest = 0;
             Annotation annotation = pipeline.process(story);
+            int id = 0;
             for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
                 //Tokenization
-               // System.out.println(sentence);
+                id++;
+                //System.out.println(id+" : "+sentence);
+                returnTriplets(sentence.toString());
                 List<CoreLabel> tokens = sentence.get(CoreAnnotations.TokensAnnotation.class);
-                System.out.println("Token      :        POS       :        NER");
                 for(CoreLabel token:tokens){
-                    String pos = token.get(CoreAnnotations.PartOfSpeechAnnotation.class);
                     String ne = token.get(CoreAnnotations.NamedEntityTagAnnotation.class);
+                    // String v  = token.getString(CoreAnnotations.TextAnnotation.class);
+                    //System.out.println("NE : "+ne);
                     if(!ne.equalsIgnoreCase("O")){
                         Set<String> nerList = nerMap.get(ne);
                         String[] t = token.toString().split("-");
                         if(nerList == null){
-                           nerList = new HashSet<>();
+                            nerList = new HashSet<>();
                         }
                         nerList.add(t[0]);
                         nerMap.put(ne,nerList);
                     }
-                    System.out.println(token+" : "+pos+" : "+ne);
                 }
-                // this is the parse tree of the current sentence
-                Tree tree = sentence.get(TreeCoreAnnotations.TreeAnnotation.class);
-              // System.out.println("parse tree:\n" + tree);
-                SemanticGraph dependencies = sentence.get(SemanticGraphCoreAnnotations.CollapsedCCProcessedDependenciesAnnotation.class);
-                //System.out.println("dependency graph:\n" + dependencies);
-                // this is the Stanford dependency graph of the current sentence
-                //SemanticGraph dependencies = sentence.get(SemanticGraphCoreAnnotations.CollapsedCCProcessedDependenciesAnnotation.class);
-                //System.out.println("dependency graph:\n" + dependencies);
 
-
-                // This is the coreference link graph
-                // Each chain stores a set of mentions that link to each other,
-                // along with a method for getting the most representative mention
-                // Both sentence and token offsets start at 1!
-                /*Map<Integer, CorefChain> graph =
-                        annotation.get(CorefCoreAnnotations.CorefChainAnnotation.class);
-
-                System.out.println(graph);*/
 
             }
-            System.out.println(nerMap);
         }
     }
 
-    public String extract(String question){
-        String answer = null;
-
-        parseQuestion(question);
-
-        return answer;
+    //This piece of code fetches triplets using openie
+    public void returnTriplets(String sentence){
+        Document doc = new Document(sentence);
+        for (Sentence sent : doc.sentences()) {
+            l.add((List)sent.openie());
+        }
     }
+    // based on question type and keywords in question triplets are fetched.
+    public void printTriplets(String keyToQueType,String sub){
+        Set<String> nerList = nerMap.get(keyToQueType);
+        boolean flag = true;
+        if(nerList != null && nerList.size()!=0){
+            for (String ele: nerList) {
+                if(flag){
+                    Iterator it =  l.iterator();
+                    while(it.hasNext() && flag){
+                        List f = (List) it.next();
+                        Iterator itr = f.listIterator();
+                        while(itr.hasNext()){
+                            String s = itr.next().toString().toLowerCase().replace(","," ").replace("("," ").
+                                    replace(")"," ");
+                            //System.out.println(s);
+                            if(s.contains(ele.toLowerCase()) && s.contains(sub) && !ele.equalsIgnoreCase(sub)){
+                                System.out.println(s.substring(1,s.length()-5));
+                                flag = false;
+                                answer = 1;
+                                ansFlag = 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else
+                    break;
 
-    public String parseQuestion(String question) {
-        String ans = null;
-        if (question != null && question.length() > 0) {
-            Annotation annotation = pipeline.process(question);
-            List<CoreMap> sentences = annotation.get(CoreAnnotations.SentencesAnnotation.class);
-            for(CoreMap sentence : sentences){
-                List<CoreLabel> tokens = sentence.get(CoreAnnotations.TokensAnnotation.class);
             }
+        }else{
+            //System.out.println("No entity type found from data : "+keyToQueType+" - expected\nMore data is required!");
         }
-        return ans;
-    }
 
-    public String whoType(String verb, String obj,String ne){
-        System.out.println("Who type question : "+ne+", is object entity" );
-        return null;
-    }
-
-    public String whereType(String verb, String obj,String ne){
-        System.out.println("Where type question : "+ne+", is object entity" );
-        return null;
-    }
-    public String whenType(String verb, String obj,String ne){
-        System.out.println("When type question : "+ne+", is object entity" );
-        return null;
     }
 
 }
-
-
-/*
-String fileType = null;
-f.writeInTOFile(" C:\\Users\\chait\\Desktop\\KDM\\Week 1B\\Assignment 1B Question types\\"+fileType+".txt");//change output file path here*/
