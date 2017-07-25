@@ -65,6 +65,9 @@ public class NLProcessor {
                 String word = token.get(CoreAnnotations.LemmaAnnotation.class);
                 if(!sWords.contains(word)){
                     qWords.add(word);
+                    if(word.length()>3){
+                        //getSynonyms(word);
+                    }
                 }
             }
         }
@@ -122,7 +125,7 @@ public class NLProcessor {
                                     .replace("("," ")
                                     .replace(")"," ");
                            String lemmatized = CoreNLPLemma.returnLemma(s);
-                           // System.out.println(lemmatized);
+                           //System.out.println(lemmatized);
                             for(String ele : qWords){
                                 if(lemmatized.contains(ele.toLowerCase())){
                                     countCurrent++;
@@ -141,7 +144,7 @@ public class NLProcessor {
         String[] poss = wordnet.getPos(word);
         for (int j = 0; j < poss.length; j++) {
             System.out.println("\n\nSynonyms for " + word + " (pos: " + poss[j] + ")");
-            String[] synonyms = wordnet.getAllSynonyms(word,poss[j],5);
+            String[] synonyms = wordnet.getAllSynonyms(word,poss[j],3);
             for (int i = 0; i < synonyms.length; i++) {
                 System.out.println(synonyms[i]);
             }

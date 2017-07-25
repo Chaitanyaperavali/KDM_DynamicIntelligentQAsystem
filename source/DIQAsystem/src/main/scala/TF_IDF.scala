@@ -79,7 +79,7 @@ object TF_IDF {
       })
 
       val dd1 = dd.distinct().sortBy(_._2, false)
-      dd1.take(20).foreach(f => {
+      dd1.take(10).foreach(f => {
         val fileUtil = new FileUtil().getStopWordsFromList("stopWords.txt")
         if (!fileUtil.contains(f._1)) {
           //println(f)                                uncomment to print tfidf words
@@ -119,4 +119,3 @@ object TF_IDF {
       }
     }
 }
-

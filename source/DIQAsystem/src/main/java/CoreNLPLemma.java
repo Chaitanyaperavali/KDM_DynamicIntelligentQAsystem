@@ -20,7 +20,7 @@ public class CoreNLPLemma {
             //System.out.println(lemma);
         }
 
-        return lemma.replaceAll("[^a-zA-Z0-9#$%@ ]","").toLowerCase();
+        return lemma;
     }
 
 }
