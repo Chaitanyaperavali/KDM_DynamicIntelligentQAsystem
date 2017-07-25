@@ -6,6 +6,7 @@ import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
 import edu.stanford.nlp.util.CoreMap;
 import edu.stanford.nlp.util.Quadruple;
+import rita.RiWordNet;
 
 import java.util.*;
 
@@ -20,18 +21,18 @@ public class NLProcessor {
     private  FileUtil f = new FileUtil();
     Properties props = new Properties();
     StanfordCoreNLP pipeline;
-    int ansFlag = -1;
-    int answer;
+    RiWordNet wordnet = new RiWordNet("C:\\Program Files (x86)\\WordNet\\2.1");
+    String ans;
 
     public void initiateCoreNlp(){
-        props.setProperty("annotators", "tokenize, ssplit,pos,lemma,ner, parse");
+        props.setProperty("annotators", "tokenize, ssplit,pos,lemma,ner");
         pipeline = new StanfordCoreNLP(props);
     }
 
     public void startSystem(){
         System.out.println("Initiating coreNLP Lib...");
         initiateCoreNlp();
-        String path = "C:\\Users\\chait\\Desktop\\046.txt";
+        String path = "data\\input.txt";
         System.out.println("Reading input file at location:\n"+path);
         String line = f.readFromFile(path);//change file path here.
         System.out.println(line);
@@ -41,6 +42,7 @@ public class NLProcessor {
         while(scanner.hasNext()){
             String questionInPut = scanner.nextLine();
             if(!questionInPut.equalsIgnoreCase("quit") && questionInPut != null){
+                ans = null;
                 extract(questionInPut);
             }
             else{
@@ -55,47 +57,22 @@ public class NLProcessor {
 
     public void parseQuestion(String question) {
         Annotation annotation =  pipeline.process(question);
-        String questionType = null;
-        String sub = null;
+        List<String> qWords = new ArrayList<>();
+        List<String> sWords= f.getStopWordsFromList("stopwords.txt");
         for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
             List<CoreLabel> tokens = sentence.get(CoreAnnotations.TokensAnnotation.class);
-            questionType = tokens.get(0).toString().toLowerCase().split("-")[0];
-            sub = tokens.get(tokens.size()-1).toString().toLowerCase().split("-")[0];
-            System.out.println("Question type : "+questionType);
+            for (CoreLabel token: tokens) {
+                String word = token.get(CoreAnnotations.LemmaAnnotation.class);
+                if(!sWords.contains(word)){
+                    qWords.add(word);
+                }
+            }
         }
-        switch(questionType){
-            case "who" : printTriplets("PERSON",sub);
-                break;
-            case "where" :
-                printTriplets("LOCATION",sub);
-                if(ansFlag == -1){
-                    printTriplets("ORGANIZATION",sub);
-
-                }
-                break;
-            case "when" :
-                printTriplets("DATE",sub);
-                if(ansFlag == -1) {
-                    printTriplets("DURATION", sub);
-                }
-
-                break;
-            case "howmuch" :
-                printTriplets("NUMBER",sub);
-                if(ansFlag == -1) {
-                    printTriplets("PERCENT", sub);
-                }
-                if(ansFlag == -1) {
-                    printTriplets("MONEY", sub);
-                }
-                break;
-            default: System.out.println("This question type is not supported yet");
-        }
+        printTriplets(qWords);
     }
 
     public void parse(String story){
         if (story != null && story.length() > 0) {
-            int longest = 0;
             Annotation annotation = pipeline.process(story);
             int id = 0;
             for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
@@ -132,38 +109,43 @@ public class NLProcessor {
         }
     }
     // based on question type and keywords in question triplets are fetched.
-    public void printTriplets(String keyToQueType,String sub){
-        Set<String> nerList = nerMap.get(keyToQueType);
-        boolean flag = true;
-        if(nerList != null && nerList.size()!=0){
-            for (String ele: nerList) {
-                if(flag){
+    public void printTriplets(List<String> qWords){
                     Iterator it =  l.iterator();
-                    while(it.hasNext() && flag){
+                    int countPrevious = 0;
+                    while(it.hasNext()){
                         List f = (List) it.next();
                         Iterator itr = f.listIterator();
                         while(itr.hasNext()){
-                            String s = itr.next().toString().toLowerCase().replace(","," ").replace("("," ").
-                                    replace(")"," ");
-                            //System.out.println(s);
-                            if(s.contains(ele.toLowerCase()) && s.contains(sub) && !ele.equalsIgnoreCase(sub)){
-                                System.out.println(s.substring(1,s.length()-5));
-                                flag = false;
-                                answer = 1;
-                                ansFlag = 1;
-                                break;
+                            int countCurrent = 0;
+                            String s = itr.next().toString().toLowerCase()
+                                    .replace(","," ")
+                                    .replace("("," ")
+                                    .replace(")"," ");
+                           String lemmatized = CoreNLPLemma.returnLemma(s);
+                           // System.out.println(lemmatized);
+                            for(String ele : qWords){
+                                if(lemmatized.contains(ele.toLowerCase())){
+                                    countCurrent++;
+                                }
+                            }
+                            if(countCurrent > countPrevious){
+                                countPrevious =  countCurrent;
+                                ans = s.substring(0,s.length()-4);
                             }
                         }
                     }
+                    System.out.println(ans);
                 }
-                else
-                    break;
 
+    public void getSynonyms(String word){
+        String[] poss = wordnet.getPos(word);
+        for (int j = 0; j < poss.length; j++) {
+            System.out.println("\n\nSynonyms for " + word + " (pos: " + poss[j] + ")");
+            String[] synonyms = wordnet.getAllSynonyms(word,poss[j],5);
+            for (int i = 0; i < synonyms.length; i++) {
+                System.out.println(synonyms[i]);
             }
-        }else{
-            //System.out.println("No entity type found from data : "+keyToQueType+" - expected\nMore data is required!");
         }
-
     }
 
 }
